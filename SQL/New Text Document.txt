@@ -1,0 +1,188 @@
+-- Look at values where the measure_value=0
+SELECT
+  *
+from
+  health.user_logs
+where
+  measure_value = 0;
+select
+  measure,
+  count(*)
+from
+  health.user_logs
+where
+  measure_value = 0
+group by
+  measure;
+select
+  *
+from
+  health.user_logs
+where
+  measure = 'blood_pressure';
+select
+  *
+from
+  health.user_logs
+where
+  measure = 'blood_pressure'
+  and measure_value = 0;
+select
+  *
+from
+  health.user_logs
+where
+  systolic is NULL
+select
+  measure,
+  count(*)
+from
+  health.user_logs
+where
+  systolic is NULL
+  or systolic = 0
+group by
+  measure;
+-- finding duplicates
+select
+  count(*)
+from
+  health.user_logs;
+--CTE
+  --reads sequentially
+  --lives on disk
+  with deduped_logs as (
+    select
+      distinct *
+    from
+      health.user_logs
+  )
+select
+  count(*)
+from
+  deduped_logs;
+--Sub query
+select
+  count(*)
+from
+  (
+    select
+      distinct *
+    from
+      health.user_logs
+  ) as subquery;
+--temp tables
+  drop table if exists deduplicated_user_logs;
+create temp table deduplicated_user_logs as
+select
+  distinct *
+from
+  health.user_logs;
+select
+  count(*)
+from
+  deduplicated_user_logs;
+--CTes
+  with deduped_logs as (
+    select
+      distinct *
+    from
+      health.user_logs
+  ),
+  actual_row_count as (
+    select
+      count(*)
+    from
+      health.user_logs
+  ),
+  final_output as (
+    select
+      *
+    from
+      actual_row_count
+  )
+select
+  *
+from
+  final_output;
+-- Remove duplicates by Group by count(*) with all columns
+  WITH groupby_counts as (
+    select
+      id,
+      log_date,
+      measure,
+      measure_value,
+      systolic,
+      diastolic,
+      count(*) as frequency
+    from
+      health.user_logs
+    group by
+      id,
+      log_date,
+      measure,
+      measure_value,
+      systolic,
+      diastolic
+  ),
+  final_output as (
+    select
+      id,
+      count(*) as total_record_count,
+      sum(frequency) as actual_record_count
+    from
+      groupby_counts
+    where
+      frequency > 1
+    group by
+      id
+  )
+select
+  *
+from
+  final_output
+order by
+  total_record_count DESC;
+-- Remove duplicates by Groupby vs having
+  with groupby_counts as (
+    select
+      id,
+      log_date,
+      measure,
+      measure_value,
+      systolic,
+      diastolic,
+      count(*) as frequency
+from
+  health.user_logs
+group by
+  id,
+  log_date,
+  measure,
+  measure_value,
+  systolic,
+  diastolic
+)
+select
+  *
+from
+  groupby_counts
+where
+  frequency > 1;
+
+-- Exercise #1 -- which id value has the most duplicate records in health.user_logs table  
+with cte_duplicate_counts as (
+select id,log_date,measure,measure_value,systolic,diastolic,count(*) as frequency from health.user_logs 
+group by id,log_date,measure,measure_value,systolic,diastolic having count(*) > 1 ) 
+select id,sum(frequency) as total_duplicate_records from cte_duplicate_counts group by id 
+order by total_duplicate_records desc;
+
+--054250c692e07a9fa9e62e345231df4b54ff435d
+
+-- Exercise #2 -- Which log_date value had the most duplicate records after removing the max duplicate id value from the previous question 
+with cte_duplicate_counts as (
+select id,log_date,measure,measure_value,systolic,diastolic,count(*) as frequency from health.user_logs 
+where id!='054250c692e07a9fa9e62e345231df4b54ff435d'
+group by id,log_date,measure,measure_value,systolic,diastolic having count(*) > 1 ) 
+select log_date,sum(frequency) as total_duplicate_records from cte_duplicate_counts group by log_date
+order by total_duplicate_records desc;
